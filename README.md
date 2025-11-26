@@ -56,7 +56,7 @@ A sophisticated, client-side salary tracking application designed for **Terafort
 
 1.  **Clone or Download** the repository:
     ```bash
-    git clone https://github.com/yourusername/elite-salary-tracker.git
+https://github.com/Faidot/Fai-salary-tracker
     ```
 2.  **Open the App**:
     Simply double-click `index.html` to open it in your browser. No server required!
