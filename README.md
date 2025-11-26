@@ -55,9 +55,7 @@ A sophisticated, client-side salary tracking application designed for **Terafort
 ### Installation
 
 1.  **Clone or Download** the repository:
-    ```bash
-https://github.com/Faidot/Fai-salary-tracker
-    ```
+    ```bash https://github.com/Faidot/Fai-salary-tracker ```
 2.  **Open the App**:
     Simply double-click `index.html` to open it in your browser. No server required!
 
