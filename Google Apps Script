@@ -1,0 +1,121 @@
+function doPost(e) {
+    var lock = LockService.getScriptLock();
+    lock.tryLock(10000);
+
+    try {
+        var ss = SpreadsheetApp.getActiveSpreadsheet();
+        var rawData = JSON.parse(e.postData.contents);
+        var timestamp = new Date();
+
+        // --- 1. TRANSACTIONS TAB ---
+        var sheetTxn = ss.getSheetByName("Transactions");
+        if (!sheetTxn) { sheetTxn = ss.insertSheet("Transactions"); sheetTxn.appendRow(["Date", "Amount", "Fee", "Total Deducted", "Cycle Month", "Timestamp"]); }
+
+        // Clear old data to ensure perfect sync (prevents duplicates)
+        if (sheetTxn.getLastRow() > 1) sheetTxn.getRange(2, 1, sheetTxn.getLastRow() - 1, 6).clearContent();
+
+        var txns = rawData.transactions || [];
+        if (txns.length > 0) {
+            var rows = [];
+            txns.forEach(function (t) {
+                var d = new Date(t.date);
+                // Elite Logic: 26th of Month X counts as Month X+1
+                if (d.getDate() >= 26) d.setMonth(d.getMonth() + 1);
+                var cycleMonth = Utilities.formatDate(d, Session.getScriptTimeZone(), "MMMM yyyy");
+                rows.push([t.date, t.amount, t.fee, t.amount + t.fee, cycleMonth, timestamp]);
+            });
+            sheetTxn.getRange(2, 1, rows.length, 6).setValues(rows);
+        }
+
+        // --- 2. MONTHLY SUMMARY TAB ---
+        var sheetSum = ss.getSheetByName("Monthly_Summary");
+        if (!sheetSum) { sheetSum = ss.insertSheet("Monthly_Summary"); }
+        sheetSum.clear(); // Always fresh summary
+        sheetSum.appendRow(["Month Key", "Month Name", "Net Salary", "Abi Taken", "Fees", "Total Abi Deduct", "HR Payable", "Status", "Last Sync"]);
+
+        var summaries = rawData.summaries || [];
+        if (summaries.length > 0) {
+            var sumRows = [];
+            summaries.forEach(function (s) {
+                sumRows.push([s.key, s.name, s.net, s.abi, s.fees, s.total_deduct, s.hr_pay, s.status, timestamp]);
+            });
+            sheetSum.getRange(2, 1, sumRows.length, 9).setValues(sumRows);
+        }
+
+        // --- 3. PAID HISTORY TAB ---
+        var sheetPaid = ss.getSheetByName("Paid_History");
+        if (!sheetPaid) sheetPaid = ss.insertSheet("Paid_History");
+        sheetPaid.clear();
+        var paidMonths = rawData.paidMonths || {};
+        var paidKeys = Object.keys(paidMonths);
+        if (paidKeys.length > 0) {
+            var pRows = paidKeys.map(function (k) { return [k]; });
+            sheetPaid.getRange(1, 1, pRows.length, 1).setValues(pRows);
+        }
+
+        // --- 4. CONFIGURATION TAB ---
+        var sheetConfig = ss.getSheetByName("Configuration");
+        if (!sheetConfig) { sheetConfig = ss.insertSheet("Configuration"); }
+        sheetConfig.clear();
+        sheetConfig.appendRow(["Key", "Value", "Last Updated"]);
+
+        var config = rawData.config || {};
+        var configRows = [
+            ["Gross Salary", config.gross || 0, timestamp],
+            ["Deductions", config.deductions || 0, timestamp],
+            ["Fee", config.fee || 0, timestamp]
+        ];
+        sheetConfig.getRange(2, 1, configRows.length, 3).setValues(configRows);
+
+        return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+
+    } catch (e) {
+        return ContentService.createTextOutput("Error: " + e.toString()).setMimeType(ContentService.MimeType.TEXT);
+    } finally {
+        lock.releaseLock();
+    }
+}
+
+function doGet(e) {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // 1. Read Transactions
+    var sheetTxn = ss.getSheetByName("Transactions");
+    var txns = [];
+    if (sheetTxn && sheetTxn.getLastRow() > 1) {
+        var data = sheetTxn.getRange(2, 1, sheetTxn.getLastRow() - 1, 3).getValues();
+        data.forEach(function (row, index) {
+            if (row[0] && row[1]) {
+                var d = new Date(row[0]);
+                var dateStr = Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
+                txns.push({ id: Date.now() + index, date: dateStr, amount: Number(row[1]), fee: Number(row[2]) });
+            }
+        });
+    }
+
+    // 2. Read Paid History
+    var sheetPaid = ss.getSheetByName("Paid_History");
+    var paidMonths = {};
+    if (sheetPaid && sheetPaid.getLastRow() > 0) {
+        var pData = sheetPaid.getDataRange().getValues();
+        pData.forEach(function (r) { if (r[0]) paidMonths[r[0]] = true; });
+    }
+
+    // 3. Read Configuration
+    var sheetConfig = ss.getSheetByName("Configuration");
+    var config = { gross: 75000, deductions: 3000, fee: 150 }; // Default fallback
+    if (sheetConfig && sheetConfig.getLastRow() > 1) {
+        var cData = sheetConfig.getDataRange().getValues();
+        for (var i = 0; i < cData.length; i++) {
+            if (cData[i][0] === "Gross Salary") config.gross = Number(cData[i][1]);
+            if (cData[i][0] === "Deductions") config.deductions = Number(cData[i][1]);
+            if (cData[i][0] === "Fee") config.fee = Number(cData[i][1]);
+        }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+        transactions: txns,
+        paidMonths: paidMonths,
+        config: config
+    })).setMimeType(ContentService.MimeType.JSON);
+}

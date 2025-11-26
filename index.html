@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fai Salary Tracking - Terafort Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .7;
+            }
+        }
+    </style>
+</head>
+
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <nav class="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-building-columns text-emerald-400"></i> Fai Salary Tracking
+            </h1>
+            <div class="text-right">
+                <div class="text-xs text-slate-400 uppercase tracking-widest">Terafort</div>
+                <div id="currentDateDisplay" class="text-sm font-mono text-emerald-400 font-bold"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- CONFIGURATION & INPUT -->
+        <div class="lg:col-span-4 space-y-6">
+            <div class="glass-panel rounded-xl p-5">
+                <div class="flex justify-between items-center mb-3 border-b pb-2">
+                    <h2 class="text-sm font-bold text-slate-500 uppercase">Configuration</h2>
+                    <span
+                        class="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 font-mono"
+                        id="configTargetMonth">For Current Cycle</span>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600">Gross Salary</label>
+                        <input type="number" id="grossSalary"
+                            class="w-full mt-1 p-2 border rounded font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                            onchange="updateConfig()">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600">Deductions (PF/Tax)</label>
+                        <input type="number" id="deductions"
+                            class="w-full mt-1 p-2 border rounded font-semibold text-red-600 focus:ring-2 focus:ring-red-500 outline-none"
+                            onchange="updateConfig()">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-2">
+                        <div class="bg-emerald-50 p-2 rounded border border-emerald-100">
+                            <div class="text-[10px] text-emerald-600 uppercase font-bold">Net Salary</div>
+                            <div class="text-lg font-bold text-emerald-800" id="displayNetSalary">Rs 0</div>
+                        </div>
+                        <div class="bg-blue-50 p-2 rounded border border-blue-100">
+                            <div class="text-[10px] text-blue-600 uppercase font-bold">Abi Daily</div>
+                            <div class="text-lg font-bold text-blue-800" id="displayDailyLimit">Rs 0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl p-6 shadow-lg border-t-4 border-slate-800">
+                <h3 class="font-bold text-lg mb-4 text-slate-800"><i
+                        class="fa-solid fa-money-bill-transfer mr-2"></i>Abi Withdrawal</h3>
+                <form id="txnForm" onsubmit="addTransaction(event)">
+                    <div class="mb-3">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
+                        <input type="date" id="txnDate" required
+                            class="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Amount</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-slate-400">Rs</span>
+                            <input type="number" id="txnAmount" placeholder="0" required min="1"
+                                class="w-full pl-10 p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none font-bold text-lg">
+                        </div>
+                        <div class="text-xs text-orange-600 mt-1 flex justify-between">
+                            <span>+ Transaction Fee</span>
+                            <span class="font-bold">Rs 150</span>
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-4 rounded transition shadow-lg">
+                        Confirm Withdrawal
+                    </button>
+                </form>
+            </div>
+
+            <button onclick="clearAllData()" class="w-full py-2 text-xs text-red-400 hover:text-red-600 underline">Reset
+                System Data</button>
+        </div>
+
+        <!-- DASHBOARD & REPORTS -->
+        <div class="lg:col-span-8 space-y-6">
+
+            <div
+                class="bg-gradient-to-br from-white to-blue-50 rounded-xl shadow-md border border-blue-100 overflow-hidden relative">
+                <div class="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-xl shadow-sm z-10"
+                    id="currentCycleBadge">--</div>
+                <div class="p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="bg-blue-100 p-2 rounded-full text-blue-600"><i class="fa-solid fa-chart-line"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800">Current Running Month</h2>
+                            <p class="text-xs text-slate-500">Live Abi Bank Status (<span
+                                    id="cycleDatesDisplay">--</span>)</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <div class="text-xs text-slate-500 font-bold uppercase">Cycle Progress</div>
+                            <div class="text-2xl font-bold text-slate-800" id="displayDaysPassed">0 Days</div>
+                            <div class="w-full bg-slate-200 h-1.5 mt-2 rounded-full overflow-hidden">
+                                <div id="progressBar" class="bg-blue-500 h-full rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500 font-bold uppercase">Total Accrued</div>
+                            <div class="text-2xl font-bold text-slate-700" id="displayAccruedTotal">Rs 0</div>
+                            <div class="text-xs text-slate-400">Based on daily limit</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500 font-bold uppercase">Available Now</div>
+                            <div class="text-3xl font-bold text-blue-600" id="displayAvailableLimit">Rs 0</div>
+                            <div class="text-xs text-slate-400">After current withdrawals</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GOOGLE SHEETS SYNC -->
+            <div class="glass-panel rounded-xl p-4 bg-emerald-50/50 border-emerald-100">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-sm font-bold text-emerald-800 flex items-center gap-2">
+                        <i class="fa-brands fa-google-drive text-emerald-600"></i> Cloud Backup
+                    </h2>
+                    <span id="syncStatus" class="text-[10px] font-mono text-slate-400">Ready</span>
+                </div>
+                <div class="flex flex-col md:flex-row gap-2">
+                    <input type="text" id="googleSheetUrl" placeholder="Paste your Google Web App URL here..."
+                        class="flex-grow text-xs p-2 border border-slate-300 rounded focus:ring-1 focus:ring-emerald-500 outline-none"
+                        onchange="saveGoogleUrl()">
+                    <div class="flex gap-1">
+                        <button onclick="syncToGoogleSheet()"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded shadow-sm transition">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Sync
+                        </button>
+                        <button onclick="restoreFromGoogleSheet()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded shadow-sm transition"
+                            title="Download data from Sheet">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Restore
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- REPORTS SECTION -->
+            <div class="glass-panel rounded-xl overflow-hidden min-h-[400px] flex flex-col">
+                <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
+                    <h2 class="font-bold text-slate-700 flex items-center gap-2">
+                        <i class="fa-solid fa-file-invoice-dollar text-slate-400"></i> Monthly Reports & Payouts
+                    </h2>
+                </div>
+
+                <div class="overflow-x-auto custom-scroll flex-grow">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-500 text-xs uppercase tracking-wider">
+                                <th class="p-4">Salary Month</th>
+                                <th class="p-4">Snapshot</th>
+                                <th class="p-4">Abi Taken <span class="text-[10px] lowercase">(inc fees)</span></th>
+                                <th class="p-4">Payable by HR</th>
+                                <th class="p-4 text-center">Status</th>
+                                <th class="p-4 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody" class="text-sm divide-y divide-slate-100 bg-white"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase">Recent Transactions</h3>
+                    <span class="text-xs text-slate-400" id="txnCount">0 Total</span>
+                </div>
+                <div class="space-y-2 max-h-40 overflow-y-auto custom-scroll" id="recentTxnList"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // State Management
+        // salaryHistory: { "2025-11": { gross: 75000, deductions: 3000, fee: 150 } }
+        let transactions = JSON.parse(localStorage.getItem('elite_salary_txns')) || [];
+        let paidMonths = JSON.parse(localStorage.getItem('elite_salary_paid_months')) || {};
+        let salaryHistory = JSON.parse(localStorage.getItem('elite_salary_history')) || {};
+        let googleUrl = localStorage.getItem('elite_salary_google_url') || '';
+
+        // Default Config (fallback)
+        const DEFAULT_GROSS = 75000;
+        const DEFAULT_DEDUCT = 3000;
+        const DEFAULT_FEE = 150;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('googleSheetUrl').value = googleUrl;
+            document.getElementById('txnDate').value = new Date().toISOString().split('T')[0];
+            const options = { weekday: 'short', day: 'numeric', month: 'short' };
+            document.getElementById('currentDateDisplay').innerText = new Date().toLocaleDateString('en-PK', options);
+
+            // Init inputs with Current Cycle config
+            loadCurrentConfigToUI();
+            recalculate();
+        });
+
+        function formatCurrency(num) { return 'Rs ' + num.toLocaleString('en-PK'); }
+
+        function getSalaryMonthKey(dateObj) {
+            const day = dateObj.getDate();
+            const month = dateObj.getMonth();
+            const year = dateObj.getFullYear();
+            // Critical Logic: >= 26th counts as next month
+            let targetDate = (day >= 26) ? new Date(year, month + 1, 1) : new Date(year, month, 1);
+            const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+            return `${targetDate.getFullYear()}-${m}`;
+        }
+
+        function getCycleDatesForMonthKey(monthKey) {
+            const [year, month] = monthKey.split('-').map(Number);
+            const startDate = new Date(year, month - 2, 26);
+            const endDate = new Date(year, month - 1, 25);
+            const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' });
+            return { startDate, endDate, monthName };
+        }
+
+        // --- NEW: Config Management Logic ---
+
+        function loadCurrentConfigToUI() {
+            const today = new Date();
+            const currentKey = getSalaryMonthKey(today);
+            let config = getConfigForMonth(currentKey);
+
+            document.getElementById('grossSalary').value = config.gross;
+            document.getElementById('deductions').value = config.deductions;
+            document.getElementById('configTargetMonth').innerText = `Config for ${currentKey}`;
+        }
+
+        function updateConfig() {
+            const gross = parseFloat(document.getElementById('grossSalary').value) || 0;
+            const deductions = parseFloat(document.getElementById('deductions').value) || 0;
+            const fee = DEFAULT_FEE;
+
+            // Save specifically for the CURRENT active cycle
+            const today = new Date();
+            const currentKey = getSalaryMonthKey(today);
+
+            salaryHistory[currentKey] = { gross, deductions, fee };
+
+            localStorage.setItem('elite_salary_history', JSON.stringify(salaryHistory));
+            recalculate();
+        }
+
+        function getConfigForMonth(monthKey) {
+            // 1. Direct match
+            if (salaryHistory[monthKey]) return salaryHistory[monthKey];
+
+            // 2. Find most recent previous config (Waterfall logic)
+            let keys = Object.keys(salaryHistory).sort();
+            let bestMatch = { gross: DEFAULT_GROSS, deductions: DEFAULT_DEDUCT, fee: DEFAULT_FEE };
+
+            for (let k of keys) {
+                if (k <= monthKey) {
+                    bestMatch = salaryHistory[k];
+                }
+            }
+            return bestMatch;
+        }
+
+        // ------------------------------------
+
+        function saveGoogleUrl() {
+            googleUrl = document.getElementById('googleSheetUrl').value.trim();
+            localStorage.setItem('elite_salary_google_url', googleUrl);
+        }
+
+        function calculateMonthlySummaries() {
+            const today = new Date();
+            const currentSalaryKey = getSalaryMonthKey(today);
+            const currentCycleDates = getCycleDatesForMonthKey(currentSalaryKey);
+
+            let monthlyData = {};
+            // Init current month
+            monthlyData[currentSalaryKey] = { key: currentSalaryKey, name: currentCycleDates.monthName, abiTaken: 0, fees: 0, isCurrent: true, transactions: [] };
+
+            transactions.forEach(txn => {
+                const tDate = new Date(txn.date);
+                const tKey = getSalaryMonthKey(tDate);
+                if (!monthlyData[tKey]) {
+                    const info = getCycleDatesForMonthKey(tKey);
+                    monthlyData[tKey] = { key: tKey, name: info.monthName, abiTaken: 0, fees: 0, isCurrent: (tKey === currentSalaryKey), transactions: [] };
+                }
+                monthlyData[tKey].abiTaken += txn.amount;
+                monthlyData[tKey].fees += txn.fee;
+                monthlyData[tKey].transactions.push(txn);
+            });
+            return { monthlyData, currentSalaryKey };
+        }
+
+        function recalculate() {
+            const { monthlyData, currentSalaryKey } = calculateMonthlySummaries();
+
+            // -- CURRENT MONTH DASHBOARD LOGIC --
+            const currentConfig = getConfigForMonth(currentSalaryKey);
+            const netSalary = currentConfig.gross - currentConfig.deductions;
+            const abiTotalLimit = netSalary / 2;
+            const dailyLimit = abiTotalLimit / 30;
+
+            document.getElementById('displayNetSalary').innerText = formatCurrency(netSalary);
+            document.getElementById('displayDailyLimit').innerText = formatCurrency(Math.floor(dailyLimit));
+
+            const currentData = monthlyData[currentSalaryKey];
+            const currentCycleDates = getCycleDatesForMonthKey(currentSalaryKey);
+
+            const startMidnight = new Date(currentCycleDates.startDate); startMidnight.setHours(0, 0, 0, 0);
+            const nowMidnight = new Date(); nowMidnight.setHours(0, 0, 0, 0);
+
+            let daysPassed = 0;
+            if (nowMidnight >= startMidnight) {
+                const diffTime = Math.abs(nowMidnight - startMidnight);
+                daysPassed = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            }
+            if (daysPassed > 30) daysPassed = 30;
+            const accruedAmount = daysPassed * dailyLimit;
+            const availableLimit = accruedAmount - currentData.abiTaken - currentData.fees;
+
+            document.getElementById('currentCycleBadge').innerText = `${currentData.name} Salary Cycle`;
+            document.getElementById('cycleDatesDisplay').innerText = `${currentCycleDates.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${currentCycleDates.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            document.getElementById('displayDaysPassed').innerText = `${daysPassed} Days`;
+            document.getElementById('progressBar').style.width = `${(daysPassed / 30) * 100}%`;
+            document.getElementById('displayAccruedTotal').innerText = formatCurrency(Math.floor(accruedAmount));
+            const availEl = document.getElementById('displayAvailableLimit');
+            availEl.innerText = formatCurrency(Math.floor(availableLimit));
+            availEl.className = availableLimit < 0 ? "text-3xl font-bold text-red-600" : "text-3xl font-bold text-blue-600";
+
+            renderReports(monthlyData);
+            renderRecentTransactions();
+        }
+
+        function renderReports(monthlyData) {
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+            const sortedMonths = Object.values(monthlyData).sort((a, b) => b.key.localeCompare(a.key));
+
+            sortedMonths.forEach(month => {
+                const monthConfig = getConfigForMonth(month.key);
+                const monthNet = monthConfig.gross - monthConfig.deductions;
+
+                const totalDeduction = month.abiTaken + month.fees;
+                let hrPaid = monthNet - totalDeduction;
+                const isPaid = paidMonths[month.key] === true;
+                let payableDisplay = formatCurrency(hrPaid);
+                let statusHtml = '', actionHtml = '', rowClass = 'hover:bg-slate-50 transition border-b border-slate-100';
+
+                // Display Config used for this row
+                const configBadge = `<div class="text-[10px] text-slate-400">Net: ${formatCurrency(monthNet)}</div>`;
+
+                if (month.isCurrent) {
+                    statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700">Running</span>`;
+                    rowClass += " bg-blue-50/30";
+                } else if (isPaid) {
+                    statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-700 flex items-center justify-center gap-1"><i class="fa-solid fa-check"></i> Settled</span>`;
+                    payableDisplay = `<div class="flex flex-col text-sm">
+                        <div class="flex justify-between w-full gap-4"><span class="text-slate-500 text-xs">HR Paid:</span> <span class="font-bold text-emerald-700">${formatCurrency(hrPaid)}</span></div>
+                        <div class="flex justify-between w-full gap-4 border-b border-slate-200 pb-1 mb-1"><span class="text-slate-500 text-xs">Abi Adj:</span> <span class="font-bold text-slate-600">${formatCurrency(totalDeduction)}</span></div>
+                        <div class="flex justify-between w-full gap-4"><span class="text-slate-400 text-[10px] uppercase">Total:</span> <span class="font-bold text-slate-800 text-xs">${formatCurrency(monthNet)}</span></div>
+                    </div>`;
+                    rowClass = "bg-emerald-50/40 hover:bg-emerald-50 transition border-b border-emerald-100";
+                    actionHtml = `<button onclick="togglePaidStatus('${month.key}')" class="text-xs text-slate-400 underline hover:text-slate-600">Undo</button>`;
+                } else {
+                    statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-700 animate-pulse-slow">Pending</span>`;
+                    actionHtml = `<button onclick="togglePaidStatus('${month.key}')" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:shadow transition"><i class="fa-solid fa-hand-holding-dollar"></i> Mark Received</button>`;
+                }
+                const tr = document.createElement('tr');
+                tr.className = rowClass;
+                tr.innerHTML = `<td class="p-4"><div class="font-bold text-slate-700">${month.name}</div><div class="text-[10px] text-slate-400 font-mono">${month.key}</div></td><td class="p-4">${configBadge}</td><td class="p-4 text-red-500 font-mono">-${formatCurrency(totalDeduction)}</td><td class="p-4 font-bold text-slate-800 text-lg">${payableDisplay}</td><td class="p-4 text-center">${statusHtml}</td><td class="p-4 text-center">${actionHtml}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderRecentTransactions() {
+            const list = document.getElementById('recentTxnList');
+            list.innerHTML = '';
+            document.getElementById('txnCount').innerText = transactions.length + ' Total';
+            const recent = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+            if (recent.length === 0) { list.innerHTML = `<div class="text-center text-xs text-slate-400 py-4">No transactions recorded</div>`; return; }
+            recent.forEach(txn => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-100 text-sm hover:bg-white transition shadow-sm";
+                div.innerHTML = `<div><div class="font-bold text-slate-700">${txn.date}</div><div class="text-[10px] text-slate-400">Fee: ${txn.fee}</div></div><div class="flex items-center gap-3"><span class="font-mono font-bold text-slate-800">${formatCurrency(txn.amount)}</span><button onclick="deleteTransaction(${txn.id})" class="text-slate-300 hover:text-red-500 transition"><i class="fa-solid fa-times"></i></button></div>`;
+                list.appendChild(div);
+            });
+        }
+
+        async function syncToGoogleSheet() {
+            const url = document.getElementById('googleSheetUrl').value.trim();
+            const statusEl = document.getElementById('syncStatus');
+            if (!url) { alert("Please enter your Google Apps Script Web App URL first."); return; }
+
+            statusEl.innerText = "Syncing..."; statusEl.className = "text-[10px] font-mono text-blue-500 animate-pulse";
+
+            // Calc summaries for cloud using Versioned Config
+            const { monthlyData } = calculateMonthlySummaries();
+            let summaries = [];
+            Object.values(monthlyData).forEach(m => {
+                const mConfig = getConfigForMonth(m.key);
+                const mNet = mConfig.gross - mConfig.deductions;
+
+                const totalDeduct = m.abiTaken + m.fees;
+                const hrPay = mNet - totalDeduct;
+                const status = (paidMonths[m.key] === true) ? "Paid" : (m.isCurrent ? "Running" : "Pending");
+                summaries.push({
+                    key: m.key, name: m.name, net: mNet, abi: m.abiTaken, fees: m.fees, total_deduct: totalDeduct, hr_pay: hrPay, status: status
+                });
+            });
+
+            try {
+                await fetch(url, {
+                    method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        transactions: transactions,
+                        paidMonths: paidMonths,
+                        summaries: summaries,
+                        salaryHistory: salaryHistory // Syncing history, not just current config
+                    })
+                });
+                statusEl.innerText = "Last Synced: Just now"; statusEl.className = "text-[10px] font-mono text-emerald-600";
+                alert("Cloud Sync Successful!\nCheck 'Monthly_Summary' tab in Google Sheets.");
+            } catch (err) { console.error(err); statusEl.innerText = "Sync Failed"; statusEl.className = "text-[10px] font-mono text-red-500"; alert("Failed to sync. Check console."); }
+        }
+
+        async function restoreFromGoogleSheet() {
+            const url = document.getElementById('googleSheetUrl').value.trim();
+            const statusEl = document.getElementById('syncStatus');
+
+            if (!url) { alert("Please enter your Google Apps Script Web App URL first."); return; }
+            // REMOVED: blind confirmation
+            // if (!confirm("Caution: This will OVERWRITE your local data with data from the Cloud. Continue?")) return;
+
+            statusEl.innerText = "Checking...";
+            statusEl.className = "text-[10px] font-mono text-blue-500 animate-pulse";
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data && data.transactions) {
+                    // NEW: ANALYZE DATA & ASK USER
+                    const count = data.transactions.length;
+                    let dateInfo = "No transactions";
+                    if (count > 0) {
+                        const dates = data.transactions.map(t => new Date(t.date));
+                        const maxDate = new Date(Math.max.apply(null, dates));
+                        dateInfo = `Latest: ${maxDate.toISOString().split('T')[0]}`;
+                    }
+
+                    const msg = `Cloud Backup Found:\n\n• Transactions: ${count}\n• Data Date: ${dateInfo}\n\nDo you want to RESTORE this data? (Local data will be replaced)`;
+
+                    if (!confirm(msg)) {
+                        statusEl.innerText = "Cancelled";
+                        statusEl.className = "text-[10px] font-mono text-slate-400";
+                        return;
+                    }
+
+                    // Proceed if confirmed
+                    transactions = data.transactions;
+                    if (data.paidMonths) paidMonths = data.paidMonths || {};
+                    if (data.salaryHistory) salaryHistory = data.salaryHistory || {};
+
+                    localStorage.setItem('elite_salary_txns', JSON.stringify(transactions));
+                    localStorage.setItem('elite_salary_paid_months', JSON.stringify(paidMonths));
+                    localStorage.setItem('elite_salary_history', JSON.stringify(salaryHistory));
+
+                    loadCurrentConfigToUI();
+                    recalculate();
+                    statusEl.innerText = "Restored: Just now";
+                    statusEl.className = "text-[10px] font-mono text-emerald-600";
+                    // Alert removed for smoother flow, or can be kept if desired
+                }
+            } catch (err) {
+                console.error(err);
+                statusEl.innerText = "Restore Failed";
+                statusEl.className = "text-[10px] font-mono text-red-500";
+                alert("Failed to restore. Did you update the Google Apps Script code to include the 'doGet' function?");
+            }
+        }
+
+        function addTransaction(e) {
+            e.preventDefault();
+            const date = document.getElementById('txnDate').value;
+            const amount = parseFloat(document.getElementById('txnAmount').value);
+            if (!amount || amount <= 0) return;
+            const txn = { id: Date.now(), date: date, amount: amount, fee: DEFAULT_FEE };
+            transactions.push(txn);
+            localStorage.setItem('elite_salary_txns', JSON.stringify(transactions));
+            recalculate();
+            document.getElementById('txnAmount').value = '';
+        }
+
+        function deleteTransaction(id) { if (confirm('Delete this transaction?')) { transactions = transactions.filter(t => t.id !== id); localStorage.setItem('elite_salary_txns', JSON.stringify(transactions)); recalculate(); } }
+        function togglePaidStatus(monthKey) { if (paidMonths[monthKey]) { delete paidMonths[monthKey]; } else { paidMonths[monthKey] = true; } localStorage.setItem('elite_salary_paid_months', JSON.stringify(paidMonths)); recalculate(); }
+        function clearAllData() { if (confirm('Warning: This will wipe all data. Continue?')) { localStorage.clear(); location.reload(); } }
+    </script>
+</body>
+
+</html>
